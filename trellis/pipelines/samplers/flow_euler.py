@@ -5,6 +5,7 @@ import torch
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
+from ...modules import sparse as sp
 from .base import Sampler
 from .classifier_free_guidance_mixin import ClassifierFreeGuidanceSamplerMixin
 from .guidance_interval_mixin import GuidanceIntervalSamplerMixin
