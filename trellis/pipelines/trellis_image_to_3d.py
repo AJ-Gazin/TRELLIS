@@ -1,19 +1,22 @@
 import os
-from typing import *
 from contextlib import contextmanager
+from typing import *
+from typing import List, Optional
+
+import numpy as np
+import open3d as o3d
+import rembg
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-from tqdm import tqdm
-from typing import List, Optional
 from easydict import EasyDict as edict
-from torchvision import transforms
 from PIL import Image
-import rembg
-from .base import Pipeline
-from . import samplers
+from torchvision import transforms
+from tqdm import tqdm
+
 from ..modules import sparse as sp
+from . import samplers
+from .base import Pipeline
 
 
 class TrellisImageTo3DPipeline(Pipeline):
@@ -51,7 +54,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         self._init_image_cond_model(image_cond_model)
 
     @staticmethod
-    def from_pretrained(path: str) -> "TrellisImageTo3DPipeline":
+    def from_pretrained(path: str, cache_dir: str = "", skip_models: list = []) -> "TrellisImageTo3DPipeline":
         """
         Load a pretrained model.
 
@@ -60,7 +63,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         """
         pipeline = super(
             TrellisImageTo3DPipeline, TrellisImageTo3DPipeline
-        ).from_pretrained(path)
+        ).from_pretrained(path, cache_dir="", skip_model=skip_models)
         new_pipeline = TrellisImageTo3DPipeline()
         new_pipeline.__dict__ = pipeline.__dict__
         args = pipeline._pretrained_args
@@ -358,6 +361,73 @@ class TrellisImageTo3DPipeline(Pipeline):
             self.unload_models(["slat_flow_model"])
 
         return slat
+    
+    @torch.no_grad()
+    def run_local_editing(
+        self,
+        ss_x0: torch.Tensor,  # data point x0 of the sparse structure
+        ref_slat: torch.Tensor,  # data point x0 of the structured latent
+        ss_mask: torch.Tensor,  # mask of the sparse structure, notice that the mask of the slat will be built at runtime
+        image: Image.Image,
+        num_samples: int = 1,
+        seed: int = 42,
+        post_mask_transform: dict = {},
+        mask_object: Optional[o3d.geometry.TriangleMesh] = None,
+        min_bound: Optional[np.ndarray] = None,
+        max_bound: Optional[np.ndarray] = None,
+        sparse_structure_sampler_params: dict = {},
+        slat_sampler_params: dict = {},
+        enable_slat_repaint: bool = True, 
+        formats: List[str] = ["mesh", "gaussian", "radiance_field"],
+        preprocess_image: bool = True,
+        return_all: bool = False,
+    ):
+        assert mask_object is not None or (
+            min_bound is not None and max_bound is not None
+        ), "At least one of mask_object and (min_bound and max_bound) must be provided"
+
+        if preprocess_image:
+            image = self.preprocess_image(image)
+        cond = self.get_cond([image])
+
+        torch.manual_seed(seed)
+
+        ss = self.sample_sparse_structure_repaint(
+            cond,
+            ss_x0,
+            ss_mask,
+            num_samples=num_samples,
+            sampler_params=sparse_structure_sampler_params,
+        )
+        print(
+            "Before/Post Local Editing: ss shape {}, {}".format(ss_x0.shape, ss.shape)
+        )
+
+        if enable_slat_repaint:
+            slat = self.sample_slat_repaint(
+                cond,
+                ss,
+                ref_slat,
+                slat_sampler_params,
+                mask_object=mask_object,
+                post_mask_transform=post_mask_transform,
+            )
+        else:
+            slat = self.sample_slat(cond, ss, slat_sampler_params)
+            
+        print(
+            "Before/Post Local Editing: slat shape {}, {}".format(
+                ref_slat.feats.shape, slat.feats.shape
+            )
+        )
+        if return_all:
+            return {
+                "ss_coords": ss.cpu().numpy(),
+                "slat_coords": slat.coords.cpu().numpy(),
+                "slat_feats": slat.feats.cpu().numpy(),
+                "outputs": self.decode_slat(slat, formats),
+            }
+        return self.decode_slat(slat, formats)
 
     @torch.no_grad()
     def run_detail_variation(

@@ -1,6 +1,8 @@
 from typing import *
+
 import torch
 import torch.nn as nn
+
 from .. import models
 
 
@@ -58,12 +60,15 @@ class Pipeline:
         self.unload_models(keys_to_unload)
 
     @staticmethod
-    def from_pretrained(path: str) -> "Pipeline":
+    def from_pretrained(path: str, cache_dir: str = "", skip_models: list = []) -> "Pipeline":
         """
         Load a pretrained model.
         """
-        import os
         import json
+        import os
+
+        if os.path.exists(f"{cache_dir}/pipeline.json"):
+            path = cache_dir
 
         is_local = os.path.exists(f"{path}/pipeline.json")
 
@@ -72,13 +77,16 @@ class Pipeline:
         else:
             from huggingface_hub import hf_hub_download
 
-            config_file = hf_hub_download(path, "pipeline.json")
+            config_file = hf_hub_download(path, "pipeline.json", cache_dir=cache_dir)
 
         with open(config_file, "r") as f:
             args = json.load(f)["args"]
 
         _models = {}
         for k, v in args["models"].items():
+            if k in skip_models:
+                print('Model {} k is SKIPPED'.format(k))
+                continue 
             try:
                 _models[k] = models.from_pretrained(f"{path}/{v}")
             except:
