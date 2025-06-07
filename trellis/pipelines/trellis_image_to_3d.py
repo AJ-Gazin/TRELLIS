@@ -63,7 +63,7 @@ class TrellisImageTo3DPipeline(Pipeline):
         """
         pipeline = super(
             TrellisImageTo3DPipeline, TrellisImageTo3DPipeline
-        ).from_pretrained(path, cache_dir="", skip_model=skip_models)
+        ).from_pretrained(path, cache_dir="", skip_models=skip_models)
         new_pipeline = TrellisImageTo3DPipeline()
         new_pipeline.__dict__ = pipeline.__dict__
         args = pipeline._pretrained_args
