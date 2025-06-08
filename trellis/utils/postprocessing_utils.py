@@ -1,22 +1,24 @@
 from typing import *
+
+import cv2
+import igraph
 import numpy as np
-import torch
-import utils3d
 import nvdiffrast.torch as dr
-from tqdm import tqdm
+import pymeshlab as pml
+import pyvista as pv
+import torch
 import trimesh
 import trimesh.visual
+import utils3d
 import xatlas
-import pyvista as pv
-from pymeshfix import _meshfix
-import pymeshlab as pml
-import igraph
-import cv2
 from PIL import Image
+from pymeshfix import _meshfix
+from tqdm import tqdm
+
+from ..renderers import GaussianRenderer
+from ..representations import Gaussian, MeshExtractResult, Strivec
 from .random_utils import sphere_hammersley_sequence
 from .render_utils import render_multiview
-from ..renderers import GaussianRenderer
-from ..representations import Strivec, Gaussian, MeshExtractResult
 
 
 def _rgb_to_srgb(f: torch.Tensor) -> torch.Tensor:
@@ -497,7 +499,11 @@ def to_trimesh(
     texture_bake_mode: Literal['fast', 'opt', 'none'] = 'opt',
     get_srgb_texture: bool = False,
     render_resolution: int = 1024,
+    vertices: Optional[np.ndarray] = None, 
+    faces: Optional[np.ndarray] = None, 
+    uvs: Optional[np.ndarray] = None,
     debug: bool = False,
+    forward_rot: bool = True,
     verbose: bool = True,
 ) -> trimesh.Trimesh:
     """
@@ -513,28 +519,30 @@ def to_trimesh(
         debug (bool): Whether to print debug information.
         verbose (bool): Whether to print progress.
     """
-    vertices_raw = mesh.vertices.cpu().numpy()
-    faces_raw = mesh.faces.cpu().numpy()
+    if vertices is None or faces is None:
+        vertices_raw = mesh.vertices.cpu().numpy() if isinstance(mesh.vertices, torch.Tensor) else np.array(mesh.vertices)
+        faces_raw = mesh.faces.cpu().numpy() if isinstance(mesh.faces, torch.Tensor) else np.array(mesh.faces)
 
-    # mesh postprocess
-    vertices, faces = postprocess_mesh(
-        vertices_raw,
-        faces_raw,
-        postprocess_mode=postprocess_mode,
-        simplify_ratio=simplify,
-        remesh_iters=remesh_iters,
-        subdivision_times=subdivision_times,
-        fill_holes=fill_holes,
-        fill_holes_max_hole_size=fill_holes_max_size,
-        fill_holes_max_hole_nbe=int(250 * np.sqrt(1 - simplify)),
-        fill_holes_resolution=1024,
-        fill_holes_num_views=1000,
-        debug=debug,
-        verbose=verbose,
-    )
+        # mesh postprocess
+        vertices, faces = postprocess_mesh(
+            vertices_raw,
+            faces_raw,
+            postprocess_mode=postprocess_mode,
+            simplify_ratio=simplify,
+            remesh_iters=remesh_iters,
+            subdivision_times=subdivision_times,
+            fill_holes=fill_holes,
+            fill_holes_max_hole_size=fill_holes_max_size,
+            fill_holes_max_hole_nbe=int(250 * np.sqrt(1 - simplify)),
+            fill_holes_resolution=1024,
+            fill_holes_num_views=1000,
+            debug=debug,
+            verbose=verbose,
+        )
 
-    # parametrize mesh
-    vertices, faces, uvs = parametrize_mesh(vertices, faces)
+    if uvs is None:
+        # parametrize mesh
+        vertices, faces, uvs = parametrize_mesh(vertices, faces)
 
     # bake texture
     observations, extrinsics, intrinsics = render_multiview(app_rep, resolution=render_resolution, nviews=100)
@@ -564,7 +572,11 @@ def to_trimesh(
 
     mesh = trimesh.Trimesh(vertices, faces, visual=trimesh.visual.TextureVisuals(uv=uvs, image=texture))
     # rotate mesh (from z-up to y-up)
-    vertices = vertices @ np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+    # vertices = vertices @ np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+    # rotate mesh (from z-up to y-up)                                                                                                                                                                                                    
+    vertices = vertices @ (np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]])
+         if forward_rot else np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]]))
+
     material = trimesh.visual.material.PBRMaterial(roughnessFactor=1.0,
                                                    baseColorTexture=texture,
                                                    baseColorFactor=np.array([255, 255, 255, 255], dtype=np.uint8))
