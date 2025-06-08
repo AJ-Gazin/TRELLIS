@@ -124,7 +124,7 @@ class TrellisImageTo3DPipeline(Pipeline):
     def preprocess_image(
         self,
         input: Image.Image,
-        rembg_model: Literal["u2net", "birefnet-general"] = "birefnet-general",
+        rembg_model: Literal["u2net", "birefnet-general"] = "u2net",
     ) -> Image.Image:
         """
         Preprocess the input image.
