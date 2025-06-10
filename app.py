@@ -1,22 +1,24 @@
 import os
-import sys
-import subprocess
-import torch
-import numpy as np
-import imageio
 import shutil
-import gradio as gr
-import trimesh
-import open3d as o3d
+import subprocess
+import sys
 from enum import Enum
-from typing import *
 from functools import partial
+from typing import *
+
+import gradio as gr
+import imageio
+import numpy as np
+import open3d as o3d
+import torch
+import trimesh
 from easydict import EasyDict as edict
-from PIL import Image
 from gradio_litmodel3d import LitModel3D
+from PIL import Image
+
 from trellis.pipelines import TrellisImageTo3DPipeline
 from trellis.representations import Gaussian, MeshExtractResult
-from trellis.utils import render_utils, postprocessing_utils, general_utils
+from trellis.utils import general_utils, postprocessing_utils, render_utils
 
 MAX_SEED = np.iinfo(np.int32).max
 TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')

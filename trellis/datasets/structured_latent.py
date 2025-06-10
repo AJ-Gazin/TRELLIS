@@ -8,7 +8,6 @@ from .components import StandardDatasetBase, TextConditionedMixin, ImageConditio
 from ..modules.sparse.basic import SparseTensor
 from .. import models
 from ..utils.render_utils import get_renderer
-from ..utils.dist_utils import read_file_dist
 from ..utils.data_utils import load_balanced_group_indices
 
 
@@ -16,7 +15,7 @@ class SLatVisMixin:
     def __init__(
         self,
         *args,
-        pretrained_slat_dec: str = 'JeffreyXiang/TRELLIS-image-large/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16',
+        pretrained_slat_dec: str = 'microsoft/TRELLIS-image-large/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16',
         slat_dec_path: Optional[str] = None,
         slat_dec_ckpt: Optional[str] = None,
         **kwargs
@@ -34,7 +33,7 @@ class SLatVisMixin:
             cfg = json.load(open(os.path.join(self.slat_dec_path, 'config.json'), 'r'))
             decoder = getattr(models, cfg['models']['decoder']['name'])(**cfg['models']['decoder']['args'])
             ckpt_path = os.path.join(self.slat_dec_path, 'ckpts', f'decoder_{self.slat_dec_ckpt}.pt')
-            decoder.load_state_dict(torch.load(read_file_dist(ckpt_path), map_location='cpu', weights_only=True))
+            decoder.load_state_dict(torch.load(ckpt_path, map_location='cpu', weights_only=True))
         else:
             decoder = models.from_pretrained(self.pretrained_slat_dec)
         self.slat_dec = decoder.cuda().eval()
@@ -115,7 +114,7 @@ class SLat(SLatVisMixin, StandardDatasetBase):
         min_aesthetic_score: float = 5.0,
         max_num_voxels: int = 32768,
         normalization: Optional[dict] = None,
-        pretrained_slat_dec: str = 'JeffreyXiang/TRELLIS-image-large/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16',
+        pretrained_slat_dec: str = 'microsoft/TRELLIS-image-large/ckpts/slat_dec_gs_swin8_B_64l8gs32_fp16',
         slat_dec_path: Optional[str] = None,
         slat_dec_ckpt: Optional[str] = None,
     ):

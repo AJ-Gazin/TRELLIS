@@ -261,6 +261,10 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
 
 # Launch the Gradio app
 if __name__ == "__main__":
+<<<<<<< HEAD
     pipeline = TrellisTextTo3DPipeline.from_pretrained("./pretrained/TRELLIS-text-xlarge")
+=======
+    pipeline = TrellisTextTo3DPipeline.from_pretrained("microsoft/TRELLIS-text-xlarge")
+>>>>>>> main
     pipeline.cuda()
     demo.launch(server_name="0.0.0.0", server_port=7860)

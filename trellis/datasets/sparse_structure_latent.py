@@ -8,14 +8,13 @@ from ..representations.octree import DfsOctree as Octree
 from ..renderers import OctreeRenderer
 from .components import StandardDatasetBase, TextConditionedMixin, ImageConditionedMixin
 from .. import models
-from ..utils.dist_utils import read_file_dist
 
 
 class SparseStructureLatentVisMixin:
     def __init__(
         self,
         *args,
-        pretrained_ss_dec: str = 'JeffreyXiang/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16',
+        pretrained_ss_dec: str = 'microsoft/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16',
         ss_dec_path: Optional[str] = None,
         ss_dec_ckpt: Optional[str] = None,
         **kwargs
@@ -33,7 +32,7 @@ class SparseStructureLatentVisMixin:
             cfg = json.load(open(os.path.join(self.ss_dec_path, 'config.json'), 'r'))
             decoder = getattr(models, cfg['models']['decoder']['name'])(**cfg['models']['decoder']['args'])
             ckpt_path = os.path.join(self.ss_dec_path, 'ckpts', f'decoder_{self.ss_dec_ckpt}.pt')
-            decoder.load_state_dict(torch.load(read_file_dist(ckpt_path), map_location='cpu', weights_only=True))
+            decoder.load_state_dict(torch.load(ckpt_path, map_location='cpu', weights_only=True))
         else:
             decoder = models.from_pretrained(self.pretrained_ss_dec)
         self.ss_dec = decoder.cuda().eval()
@@ -134,7 +133,7 @@ class SparseStructureLatent(SparseStructureLatentVisMixin, StandardDatasetBase):
         latent_model: str,
         min_aesthetic_score: float = 5.0,
         normalization: Optional[dict] = None,
-        pretrained_ss_dec: str = 'JeffreyXiang/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16',
+        pretrained_ss_dec: str = 'microsoft/TRELLIS-image-large/ckpts/ss_dec_conv3d_16l8_fp16',
         ss_dec_path: Optional[str] = None,
         ss_dec_ckpt: Optional[str] = None,
     ):
