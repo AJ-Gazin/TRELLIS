@@ -1,0 +1,8 @@
+diffusers 
+wandb 
+accelerate 
+tqdm 
+omegaconf 
+transformers 
+git+https://github.com/openai/CLIP
+pandas

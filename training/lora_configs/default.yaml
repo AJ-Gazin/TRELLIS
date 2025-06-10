@@ -1,0 +1,22 @@
+train_data: 
+  - name: 'Toys4k'
+    inroot: './datasets/Toys4k'
+    weight: 1.0 
+    get_image: true
+
+eval_data: 
+  name: 'Toys4k'
+  inroot: './datasets/Toys4k'
+  weight: 1.0 
+  num_views: 4
+  get_eval: true 
+  get_image: true 
+
+train_batch_size: 1
+eval_batch_size: 4
+gradient_accumulation_steps: 2
+num_workers: 2
+learning_rate: 0.0002
+
+output_dir: "outputs"
+logging_dir: "logs"
