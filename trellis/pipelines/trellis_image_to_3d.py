@@ -1,7 +1,6 @@
 import os
 from contextlib import contextmanager
 from typing import *
-from typing import List, Optional
 
 import numpy as np
 import open3d as o3d
@@ -9,10 +8,8 @@ import rembg
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from easydict import EasyDict as edict
 from PIL import Image
 from torchvision import transforms
-from tqdm import tqdm
 
 from ..modules import sparse as sp
 from . import samplers
@@ -37,6 +34,8 @@ class TrellisImageTo3DPipeline(Pipeline):
         models: dict[str, nn.Module] = None,
         sparse_structure_sampler: samplers.Sampler = None,
         slat_sampler: samplers.Sampler = None,
+        sparse_structure_repaint_sampler: samplers.Sampler = None,
+        slat_repaint_sampler: samplers.Sampler = None,
         slat_normalization: dict = None,
         image_cond_model: str = None,
         low_vram: bool = False,
@@ -46,8 +45,15 @@ class TrellisImageTo3DPipeline(Pipeline):
         super().__init__(models, low_vram=low_vram)
         self.sparse_structure_sampler = sparse_structure_sampler
         self.slat_sampler = slat_sampler
+        # repaint samplers
+        self.sparse_structure_repaint_sampler = sparse_structure_repaint_sampler
+        self.slat_repaint_sampler = slat_repaint_sampler
+        # normal samplers
         self.sparse_structure_sampler_params = {}
         self.slat_sampler_params = {}
+        # repaint sampler parameters
+        self.sparse_structure_repaint_sampler_params = {}
+        self.slat_repaint_sampler_params = {}
         self.slat_normalization = slat_normalization
         self.rembg_session = None
         self.low_vram = low_vram
@@ -74,11 +80,31 @@ class TrellisImageTo3DPipeline(Pipeline):
         new_pipeline.sparse_structure_sampler_params = args["sparse_structure_sampler"][
             "params"
         ]
+        
+        # Use the same parameter setup for the repaint version
+        new_pipeline.sparse_structure_repaint_sampler = (
+            samplers.FlowEulerRepaintGuidanceIntervalSampler(
+                **args["sparse_structure_sampler"]["args"]
+            )
+        )
+        new_pipeline.sparse_structure_repaint_sampler_params = args[
+            "sparse_structure_sampler"
+        ]["params"]
+        # End
 
         new_pipeline.slat_sampler = getattr(samplers, args["slat_sampler"]["name"])(
             **args["slat_sampler"]["args"]
         )
         new_pipeline.slat_sampler_params = args["slat_sampler"]["params"]
+        
+        # Use the same parameter setup for the repaint version
+        new_pipeline.slat_repaint_sampler = (
+            samplers.FlowEulerRepaintGuidanceIntervalSampler(
+                **args["slat_sampler"]["args"]
+            )
+        )
+        new_pipeline.slat_repaint_sampler_params = args["slat_sampler"]["params"]
+        # End
 
         new_pipeline.slat_normalization = args["slat_normalization"]
 
@@ -280,6 +306,44 @@ class TrellisImageTo3DPipeline(Pipeline):
             self.unload_models(["sparse_structure_decoder"])
 
         return coords
+    
+    def sample_sparse_structure_repaint(
+        self,
+        cond: dict,
+        ss_x0: torch.Tensor,
+        ss_mask: torch.Tensor,
+        num_samples: int = 1,
+        sampler_params: dict = {},
+        verbose: bool = True,
+    ) -> torch.Tensor:
+        """
+        Sample sparse structures with the given conditioning.
+
+        Args:
+            cond (dict): The conditioning information.
+            num_samples (int): The number of samples to generate.
+            sampler_params (dict): Additional parameters for the sampler.
+        """
+        # Sample occupancy latent
+        flow_model = self.models["sparse_structure_flow_model"]
+
+        reso = flow_model.resolution
+        noise = torch.randn(num_samples, flow_model.in_channels, reso, reso, reso).to(
+            self.device
+        )
+        sampler_params = {
+            **self.sparse_structure_repaint_sampler_params,
+            **sampler_params,
+        }
+        z_s = self.sparse_structure_repaint_sampler.sample(
+            flow_model, noise, ss_mask, ss_x0, **cond, **sampler_params, verbose=verbose
+        ).samples
+
+        # Decode occupancy latent
+        decoder = self.models["sparse_structure_decoder"]
+        coords = torch.argwhere(decoder(z_s) > 0)[:, [0, 2, 3, 4]].int()
+
+        return coords
 
     @torch.no_grad()
     def decode_slat(
@@ -362,6 +426,73 @@ class TrellisImageTo3DPipeline(Pipeline):
 
         return slat
     
+    def sample_slat_repaint(
+        self,
+        cond: dict,
+        coords: torch.Tensor,
+        ref_slat: sp.SparseTensor,
+        sampler_params: dict = {},
+        mask_object: Optional[o3d.geometry.TriangleMesh] = None,
+        post_mask_transform: Optional[dict] = None,
+        verbose: bool = True,
+    ) -> sp.SparseTensor:
+        """
+        Sample structured latent with the given conditioning.
+
+        Args:
+            cond (dict): The conditioning information.
+            coords (torch.Tensor): The coordinates of the sparse structure.
+            sampler_params (dict): Additional parameters for the sampler.
+        """
+        from ..utils.edit_utils import map_slat_sp
+
+        std = torch.tensor(self.slat_normalization["std"])[None].to(coords.device)
+        mean = torch.tensor(self.slat_normalization["mean"])[None].to(coords.device)
+        # normalise the reference
+        # ref_slat.feats = (ref_slat.feats - mean) / std
+        ref_slat = (ref_slat - mean) / std
+
+        # Sample structured latent
+        flow_model = self.models["slat_flow_model"]
+
+        noise = sp.SparseTensor(
+            feats=torch.randn(coords.shape[0], flow_model.in_channels).to(self.device),
+            coords=coords,
+        )
+        # Build slat_mask at runtime
+        # Build slat_x0 with query to ref_slat & noise
+        slat_x0, slat_mask = map_slat_sp(
+            ref_slat,
+            noise,
+            mask_object,
+            transform=post_mask_transform,
+            verbose=True,
+            debug=False,
+        )
+        noise = sp.SparseTensor(
+            feats=torch.randn(coords.shape[0], flow_model.in_channels).to(self.device),
+            coords=coords,
+        )
+        sampler_params = {**self.slat_repaint_sampler_params, **sampler_params}
+        slat = self.slat_repaint_sampler.sample(
+            flow_model,
+            noise,
+            slat_mask,
+            slat_x0,
+            **cond,
+            **sampler_params,
+            verbose=verbose,
+        ).samples
+
+        # slat_feats = slat.feats
+        # slat_feats[slat_mask.bool().view(-1)] = slat_feats[slat_mask.bool().view(-1)] / 4
+        # slat.replace(slat_feats)
+
+        # return ref_slat * std + mean
+        slat = slat * std + mean
+        return slat
+
+    
     @torch.no_grad()
     def run_local_editing(
         self,
@@ -399,10 +530,6 @@ class TrellisImageTo3DPipeline(Pipeline):
             num_samples=num_samples,
             sampler_params=sparse_structure_sampler_params,
         )
-        print(
-            "Before/Post Local Editing: ss shape {}, {}".format(ss_x0.shape, ss.shape)
-        )
-
         if enable_slat_repaint:
             slat = self.sample_slat_repaint(
                 cond,
@@ -415,11 +542,6 @@ class TrellisImageTo3DPipeline(Pipeline):
         else:
             slat = self.sample_slat(cond, ss, slat_sampler_params)
             
-        print(
-            "Before/Post Local Editing: slat shape {}, {}".format(
-                ref_slat.feats.shape, slat.feats.shape
-            )
-        )
         if return_all:
             return {
                 "ss_coords": ss.cpu().numpy(),

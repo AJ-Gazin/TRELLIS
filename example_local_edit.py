@@ -13,15 +13,16 @@ os.environ["SPCONV_ALGO"] = "native"  # Can be 'native' or 'auto', default is 'a
 
 import imageio
 import numpy as np
-import trimesh
 import open3d as o3d
 import torch
-from tqdm import tqdm, trange
+import trimesh
 from PIL import Image
+from tqdm import tqdm, trange
+
 from trellis import models
 from trellis.modules.sparse import SparseTensor, sparse_cat
 from trellis.pipelines import TrellisImageTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
+from trellis.utils import postprocessing_utils, render_utils
 
 """
 Image-conditioned local editing (Sec3.4 of the paper)
@@ -131,13 +132,13 @@ def voxelize_and_genmask(
 
 
 feat_model = "dinov2_vitl14_reg"
-enc_pretrained = "JeffreyXiang/TRELLIS-image-large/ckpts/ss_enc_conv3d_16l8_fp16"
+enc_pretrained = "microsoft/TRELLIS-image-large/ckpts/ss_enc_conv3d_16l8_fp16"
 latent_name = f"{feat_model}_{enc_pretrained.split('/')[-1]}"
 # the encoder from voxel to sparse structure latent
 encoder = models.from_pretrained(enc_pretrained).eval().cuda()
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
+pipeline = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS-image-large")
 pipeline.cuda()
 
 # Test image path and saving directory
@@ -238,6 +239,8 @@ def run_experiments(
                             return_all=True,
                         )
                     except Exception as e:
+                        import traceback
+                        traceback.print_exc()
                         print(
                             f"Error: {e} during running the {step} {cfg_ss:.1f}_{cfg_slat:.1f} {resample_times} {resample_method}"
                         )

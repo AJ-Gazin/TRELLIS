@@ -6,11 +6,12 @@ os.environ["SPCONV_ALGO"] = "native"  # Can be 'native' or 'auto', default is 'a
 # Recommended to set to 'native' if run only once.
 
 import imageio
+
 from trellis.pipelines import TrellisTextTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
+from trellis.utils import postprocessing_utils, render_utils
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisTextTo3DPipeline.from_pretrained("./pretrained/TRELLIS-text-xlarge")
+pipeline = TrellisTextTo3DPipeline.from_pretrained("microsoft/TRELLIS-text-xlarge")
 # pipeline.cuda()
 pipeline.low_vram = True 
 

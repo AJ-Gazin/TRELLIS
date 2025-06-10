@@ -1,5 +1,6 @@
 import os
 import sys
+
 # os.environ['ATTN_BACKEND'] = 'xformers'   # Can be 'flash-attn' or 'xformers', default is 'flash-attn'
 os.environ['SPCONV_ALGO'] = 'native'  # Can be 'native' or 'auto', default is 'auto'.
 # 'auto' is faster but will do benchmarking at the beginning.
@@ -10,8 +11,10 @@ import numpy as np
 import open3d as o3d
 import torch
 from PIL import Image
+
 from trellis.pipelines import TrellisImageTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
+from trellis.utils import postprocessing_utils, render_utils
+
 """
 Image-version detail variation (Sec3.4 of the paper)
 1. Voxelize a GIVEN mesh into the form of Sparse Structure.
@@ -35,7 +38,7 @@ def voxelize(mesh_path: str, resolution: int = 64):
 
 
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
+pipeline = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS-image-large")
 pipeline.cuda()
 
 # Test image path and saving directory

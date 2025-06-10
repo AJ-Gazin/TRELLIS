@@ -9,14 +9,15 @@ import imageio
 import numpy as np
 import torch
 from PIL import Image
+
 from trellis.pipelines import TrellisImageTo3DPipeline
-from trellis.utils import render_utils, postprocessing_utils
+from trellis.utils import postprocessing_utils, render_utils
 
 use_gpu = True
 # Low VRAM mode, NOTICE that if the model is intended to be run on CPU, set to False
 low_vram = False
 # Load a pipeline from a model folder or a Hugging Face model hub.
-pipeline = TrellisImageTo3DPipeline.from_pretrained("JeffreyXiang/TRELLIS-image-large")
+pipeline = TrellisImageTo3DPipeline.from_pretrained("microsoft/TRELLIS-image-large")
 pipeline.low_vram = low_vram
 if not low_vram and use_gpu:
     # Move to GPU immediately

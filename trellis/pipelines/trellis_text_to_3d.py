@@ -4,6 +4,7 @@ import numpy as np
 import open3d as o3d
 import torch
 import torch.nn as nn
+from PIL import Image
 from transformers import AutoTokenizer, CLIPTextModel
 
 from ..modules import sparse as sp
@@ -164,6 +165,45 @@ class TrellisTextTo3DPipeline(Pipeline):
             self.unload_models(["sparse_structure_decoder"])
 
         return coords
+    
+    def sample_sparse_structure_repaint(
+        self,
+        cond: dict,
+        ss_x0: torch.Tensor,
+        ss_mask: torch.Tensor,
+        num_samples: int = 1,
+        sampler_params: dict = {},
+        verbose: bool = True,
+    ) -> torch.Tensor:
+        """
+        Sample sparse structures with the given conditioning.
+
+        Args:
+            cond (dict): The conditioning information.
+            num_samples (int): The number of samples to generate.
+            sampler_params (dict): Additional parameters for the sampler.
+        """
+        # Sample occupancy latent
+        flow_model = self.models["sparse_structure_flow_model"]
+
+        reso = flow_model.resolution
+        noise = torch.randn(num_samples, flow_model.in_channels, reso, reso, reso).to(
+            self.device
+        )
+        sampler_params = {
+            **self.sparse_structure_repaint_sampler_params,
+            **sampler_params,
+        }
+        z_s = self.sparse_structure_repaint_sampler.sample(
+            flow_model, noise, ss_mask, ss_x0, **cond, **sampler_params, verbose=verbose
+        ).samples
+
+        # Decode occupancy latent
+        decoder = self.models["sparse_structure_decoder"]
+        coords = torch.argwhere(decoder(z_s) > 0)[:, [0, 2, 3, 4]].int()
+
+        return coords
+
 
     def decode_slat(
         self,
@@ -299,6 +339,131 @@ class TrellisTextTo3DPipeline(Pipeline):
         voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(mesh, voxel_size=1/64, min_bound=(-0.5, -0.5, -0.5), max_bound=(0.5, 0.5, 0.5))
         vertices = np.array([voxel.grid_index for voxel in voxel_grid.get_voxels()])
         return torch.tensor(vertices).int().cuda()
+    
+    def sample_slat_repaint(
+        self,
+        cond: dict,
+        coords: torch.Tensor,
+        ref_slat: sp.SparseTensor,
+        sampler_params: dict = {},
+        mask_object: Optional[o3d.geometry.TriangleMesh] = None,
+        post_mask_transform: Optional[dict] = None,
+        verbose: bool = True,
+    ) -> sp.SparseTensor:
+        """
+        Sample structured latent with the given conditioning.
+
+        Args:
+            cond (dict): The conditioning information.
+            coords (torch.Tensor): The coordinates of the sparse structure.
+            sampler_params (dict): Additional parameters for the sampler.
+        """
+        from ..utils.edit_utils import map_slat_sp
+
+        std = torch.tensor(self.slat_normalization["std"])[None].to(coords.device)
+        mean = torch.tensor(self.slat_normalization["mean"])[None].to(coords.device)
+        # normalise the reference
+        # ref_slat.feats = (ref_slat.feats - mean) / std
+        ref_slat = (ref_slat - mean) / std
+
+        # Sample structured latent
+        flow_model = self.models["slat_flow_model"]
+
+        noise = sp.SparseTensor(
+            feats=torch.randn(coords.shape[0], flow_model.in_channels).to(self.device),
+            coords=coords,
+        )
+        # Build slat_mask at runtime
+        # Build slat_x0 with query to ref_slat & noise
+        slat_x0, slat_mask = map_slat_sp(
+            ref_slat,
+            noise,
+            mask_object,
+            transform=post_mask_transform,
+            verbose=True,
+            debug=False,
+        )
+        noise = sp.SparseTensor(
+            feats=torch.randn(coords.shape[0], flow_model.in_channels).to(self.device),
+            coords=coords,
+        )
+        sampler_params = {**self.slat_repaint_sampler_params, **sampler_params}
+        slat = self.slat_repaint_sampler.sample(
+            flow_model,
+            noise,
+            slat_mask,
+            slat_x0,
+            **cond,
+            **sampler_params,
+            verbose=verbose,
+        ).samples
+
+        # slat_feats = slat.feats
+        # slat_feats[slat_mask.bool().view(-1)] = slat_feats[slat_mask.bool().view(-1)] / 4
+        # slat.replace(slat_feats)
+
+        # return ref_slat * std + mean
+        slat = slat * std + mean
+        return slat
+
+    
+    @torch.no_grad()
+    def run_local_editing(
+        self,
+        ss_x0: torch.Tensor,  # data point x0 of the sparse structure
+        ref_slat: torch.Tensor,  # data point x0 of the structured latent
+        ss_mask: torch.Tensor,  # mask of the sparse structure, notice that the mask of the slat will be built at runtime
+        image: Image.Image,
+        num_samples: int = 1,
+        seed: int = 42,
+        post_mask_transform: dict = {},
+        mask_object: Optional[o3d.geometry.TriangleMesh] = None,
+        min_bound: Optional[np.ndarray] = None,
+        max_bound: Optional[np.ndarray] = None,
+        sparse_structure_sampler_params: dict = {},
+        slat_sampler_params: dict = {},
+        enable_slat_repaint: bool = True, 
+        formats: List[str] = ["mesh", "gaussian", "radiance_field"],
+        preprocess_image: bool = True,
+        return_all: bool = False,
+    ):
+        assert mask_object is not None or (
+            min_bound is not None and max_bound is not None
+        ), "At least one of mask_object and (min_bound and max_bound) must be provided"
+
+        if preprocess_image:
+            image = self.preprocess_image(image)
+        cond = self.get_cond([image])
+
+        torch.manual_seed(seed)
+
+        ss = self.sample_sparse_structure_repaint(
+            cond,
+            ss_x0,
+            ss_mask,
+            num_samples=num_samples,
+            sampler_params=sparse_structure_sampler_params,
+        )
+        if enable_slat_repaint:
+            slat = self.sample_slat_repaint(
+                cond,
+                ss,
+                ref_slat,
+                slat_sampler_params,
+                mask_object=mask_object,
+                post_mask_transform=post_mask_transform,
+            )
+        else:
+            slat = self.sample_slat(cond, ss, slat_sampler_params)
+            
+        if return_all:
+            return {
+                "ss_coords": ss.cpu().numpy(),
+                "slat_coords": slat.coords.cpu().numpy(),
+                "slat_feats": slat.feats.cpu().numpy(),
+                "outputs": self.decode_slat(slat, formats),
+            }
+        return self.decode_slat(slat, formats)
 
     @torch.no_grad()
     def run_variant(
