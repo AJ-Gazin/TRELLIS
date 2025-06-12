@@ -1,5 +1,6 @@
 from typing import *
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -134,3 +135,26 @@ class Pipeline:
 
     def cpu(self) -> None:
         self.to(torch.device("cpu"))
+
+    
+    def preprocess_voxel(
+        self, binary_voxel: np.ndarray, voxel_res: int = 64, concat_dim: bool = True
+    ) -> torch.Tensor:
+        """
+        Preprocess(read / voxelize) the given 3D object.
+        """
+        assert all(
+            [s == voxel_res for s in binary_voxel.shape]
+        ), "Input voxels have incompatible resolution {}".format(binary_voxel.shape)
+        # Active voxels (N_p x 3)
+        x, y, z = np.nonzero(binary_voxel)
+        values_sum = x * voxel_res * voxel_res + y * voxel_res + z
+        active_voxels = np.stack([x, y, z], axis=1)[np.argsort(values_sum)]
+        if not concat_dim:
+            return torch.from_numpy(active_voxels).int().cuda()
+        
+        active_voxels = np.concatenate(
+            (np.zeros((len(active_voxels), 1), dtype=np.int32), active_voxels), axis=1
+        )
+        # Pad with the batch dimension
+        return torch.from_numpy(active_voxels).int().cuda()
