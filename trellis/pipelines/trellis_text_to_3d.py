@@ -4,6 +4,7 @@ import numpy as np
 import open3d as o3d
 import torch
 import torch.nn as nn
+import trimesh
 from PIL import Image
 from transformers import AutoTokenizer, CLIPTextModel
 
@@ -320,15 +321,23 @@ class TrellisTextTo3DPipeline(Pipeline):
         slat = self.sample_slat(cond, coords, slat_sampler_params)
         return self.decode_slat(slat, formats)
     
-    def voxelize(self, mesh: o3d.geometry.TriangleMesh) -> torch.Tensor:
+    def voxelize(self, mesh: Union[o3d.geometry.TriangleMesh, trimesh.Trimesh]) -> torch.Tensor:
         """
         Voxelize a mesh.
 
         Args:
-            mesh (o3d.geometry.TriangleMesh): The mesh to voxelize.
+            mesh (o3d.geometry.TriangleMesh or trimesh.Trimesh): The mesh to voxelize.
             sha256 (str): The SHA256 hash of the mesh.
             output_dir (str): The output directory.
         """
+        if isinstance(mesh, trimesh.Trimesh):
+            try:
+                mesh = mesh.as_open3d
+            except Exception as e:
+                mesh = o3d.geometry.TriangleMesh(
+                    o3d.utility.Vector3dVector(mesh.vertices),
+                    o3d.utility.Vector3iVector(mesh.faces),
+                )
         vertices = np.asarray(mesh.vertices)
         aabb = np.stack([vertices.min(0), vertices.max(0)])
         center = (aabb[0] + aabb[1]) / 2
@@ -468,9 +477,10 @@ class TrellisTextTo3DPipeline(Pipeline):
     @torch.no_grad()
     def run_variant(
         self,
-        mesh: o3d.geometry.TriangleMesh,
+        mesh: Union[o3d.geometry.TriangleMesh, trimesh.Trimesh],
         prompt: str,
         negative_prompt: str = '',
+        binary_voxel: Optional[np.ndarray] = None,
         num_samples: int = 1,
         seed: int = 42,
         slat_sampler_params: dict = {},
@@ -481,7 +491,7 @@ class TrellisTextTo3DPipeline(Pipeline):
         Run the pipeline for making variants of an asset.
 
         Args:
-            mesh (o3d.geometry.TriangleMesh): The base mesh.
+            mesh (o3d.geometry.TriangleMesh or trimesh.Trimesh): The base mesh.
             prompt (str): The text prompt.
             num_samples (int): The number of samples to generate.
             seed (int): The random seed
@@ -492,7 +502,7 @@ class TrellisTextTo3DPipeline(Pipeline):
             self.verify_model_low_vram_devices()
 
         cond = self.get_cond([prompt], [negative_prompt])
-        coords = self.voxelize(mesh)
+        coords = self.voxelize(mesh) if binary_voxel is None else self.preprocess_voxel(binary_voxel, concat_dim=False)
         coords = torch.cat([
             torch.arange(num_samples).repeat_interleave(coords.shape[0], 0)[:, None].int().cuda(),
             coords.repeat(num_samples, 1)

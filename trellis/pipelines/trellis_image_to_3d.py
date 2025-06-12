@@ -128,24 +128,6 @@ class TrellisImageTo3DPipeline(Pipeline):
         )
         self.image_cond_model_transform = transform
 
-    def preprocess_voxel(
-        self, binary_voxel: np.ndarray, voxel_res: int = 64
-    ) -> torch.Tensor:
-        """
-        Preprocess(read / voxelize) the given 3D object.
-        """
-        assert all(
-            [s == voxel_res for s in binary_voxel.shape]
-        ), "Input voxels have incompatible resolution {}".format(binary_voxel.shape)
-        # Active voxels (N_p x 3)
-        x, y, z = np.nonzero(binary_voxel)
-        values_sum = x * voxel_res * voxel_res + y * voxel_res + z
-        active_voxels = np.stack([x, y, z], axis=1)[np.argsort(values_sum)]
-        active_voxels = np.concatenate(
-            (np.zeros((len(active_voxels), 1), dtype=np.int32), active_voxels), axis=1
-        )
-        # Pad with the batch dimension
-        return torch.from_numpy(active_voxels).int().cuda()
 
     def preprocess_image(
         self,
