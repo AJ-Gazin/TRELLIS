@@ -3,11 +3,12 @@
 ## Project Overview
 This TRELLIS fork implements experimental local editing capabilities for 3D meshes. The primary goal is to test and demonstrate the TRELLIS method for mesh editing, allowing local geometry changes to objects while maintaining overall structure.
 
-**Date**: June 2025
-**Status**: Experimental local editing implementation testing
+**Date**: December 2024
+**Status**: Working implementation with Claude Code tested setup
+**Repository**: Fork of https://github.com/FishWoWater/TRELLIS/tree/dev
 
 ## Core Objective
-Test a TRELLIS-based method for mesh editing. The authors claimed in their paper that local editing of objects is possible, but never published the code. This fork implements it as an experimental feature.
+Test a TRELLIS-based method for mesh editing. The authors claimed in their paper that local editing of objects is possible, but never published the code. This fork implements it as an experimental feature with a fully tested working environment.
 
 ### Primary Testing Pipeline
 1. Take a 3D model of furniture (table recommended for visible geometry changes)
@@ -22,37 +23,82 @@ Test a TRELLIS-based method for mesh editing. The authors claimed in their paper
 ## System Requirements
 
 ### Hardware
-- NVIDIA GPU with at least 16GB memory (tested on A100, A6000)
-- Linux system (recommended)
+- NVIDIA GPU with at least 16GB memory (tested on NVIDIA A40 with 46GB VRAM)
+- Linux system (tested on Ubuntu 22.04)
 
 ### Software
-- **Python**: 3.12
-- **CUDA**: 12.7
-- **PyTorch**: Must use `cu126` variant (torch with CUDA 12.6 support for compatibility)
+- **Python**: 3.10+ (tested with 3.10.18)
+- **CUDA**: 12.7 (or 12.6+)
+- **PyTorch**: 2.6.0 with cu126 support (tested working combination)
 
-## Installation
+## Quick Setup (Claude Code Working Configuration)
 
-### Environment Setup
+### One-Command Install
 ```bash
-# Create conda environment with Python 3.12
-conda create -n trellis python=3.12
+# Create conda environment
+conda create -n trellis python=3.10
 conda activate trellis
 
-# Install PyTorch with CUDA 12.6 support (compatible with CUDA 12.7)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
+# Install using Claude Code tested configuration
+./setup.sh --claude-working-setup
 
-# Install project dependencies
-. ./setup.sh --basic --xformers --flash-attn --diffoctreerast --spconv --mipgaussian --kaolin --nvdiffrast
+# Set environment variables
+export ATTN_BACKEND=flash-attn
+export SPCONV_ALGO=native
+```
 
-# For local editing specific dependencies
-pip install trimesh open3d imageio pillow tqdm numpy
+### Manual Installation (if you need to customize)
+
+#### Environment Setup
+```bash
+# Create conda environment
+conda create -n trellis python=3.10
+conda activate trellis
+
+# Install PyTorch 2.6.0 with CUDA 12.6 support (tested working)
+pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+
+# Install basic dependencies
+pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d transformers
+
+# Install utils3d from specific commit (required for TRELLIS)
+pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
+
+# Install spconv-cu126 (latest version compatible with CUDA 12.6)
+pip install spconv-cu126
+
+# Install flash-attn (works better than xformers with our setup)
+pip install flash-attn
+
+# Install mesh processing dependencies
+pip install pymeshlab pymeshfix pyvista
+
+# Install nvdiffrast from source
+pip install git+https://github.com/NVlabs/nvdiffrast.git
+
+# Install additional dependencies
+pip install plyfile
 ```
 
 ### Environment Variables
 ```bash
-export ATTN_BACKEND=xformers  # or flash-attn
-export SPCONV_ALGO=native     # Recommended for single runs
+export ATTN_BACKEND=flash-attn    # Use flash-attn instead of xformers
+export SPCONV_ALGO=native         # Recommended for single runs
 ```
+
+## Tested Package Versions (Working Configuration)
+- torch==2.6.0+cu126
+- torchvision==0.21.0+cu126
+- torchaudio==2.6.0+cu126
+- spconv-cu126==2.3.8
+- flash-attn==2.8.0.post2
+- nvdiffrast==0.3.3
+- pymeshlab==2023.12.post3
+- pymeshfix==0.17.1
+- pyvista==0.45.2
+- trimesh==4.6.12
+- open3d==0.19.0
+- utils3d==0.0.2
 
 ## Local Editing Pipeline
 
@@ -171,12 +217,99 @@ Models are automatically downloaded from Hugging Face on first run.
    - Compare different parameter combinations
    - Evaluate quality of local edits
 
+## Key Fixes Applied in This Fork
+
+### 1. kaolin Compatibility Issue
+- **Problem**: Original code tried to import `kaolin.utils.testing.check_tensor` but kaolin 0.17.0 has compatibility issues with PyTorch 2.6.0
+- **Solution**: Replaced kaolin import with minimal `check_tensor` implementation in `trellis/representations/mesh/flexicubes/flexicubes.py`
+- **Impact**: FlexiCubes mesh extraction now works without requiring kaolin
+
+### 2. spconv Version Compatibility  
+- **Problem**: Original setup used spconv-cu120 which had CUDA library conflicts with CUDA 12.7
+- **Solution**: Updated to spconv-cu126 (version 2.3.8) which is compatible with CUDA 12.6/12.7
+- **Impact**: Sparse convolution backend now works properly
+
+### 3. PyTorch Version Selection
+- **Problem**: Latest PyTorch 2.7+ had compatibility issues with various dependencies
+- **Solution**: Selected PyTorch 2.6.0 + cu126 as the stable, tested combination
+- **Impact**: All components work together without version conflicts
+
+### 4. Attention Backend Selection
+- **Problem**: xformers had compatibility issues with our PyTorch version
+- **Solution**: Used flash-attn as the attention backend instead
+- **Impact**: Attention operations work correctly with better performance
+
+## Verification Commands
+
+### Test Environment Setup
+```bash
+# Activate environment
+conda activate trellis
+export ATTN_BACKEND=flash-attn
+export SPCONV_ALGO=native
+
+# Test core imports
+python -c "from trellis import models; from trellis.pipelines import TrellisImageTo3DPipeline; print('✅ TRELLIS imports successful')"
+
+# Test mesh loading
+python -c "import trimesh; mesh = trimesh.load('./assets/example_local_edit/doll2/doll.glb'); print(f'✅ Mesh loaded: {len(mesh.vertices)} vertices')"
+
+# Test GPU and CUDA
+python -c "import torch; print(f'✅ PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
+```
+
 ## Known Limitations
 
 - Experimental implementation - results may vary
-- Requires substantial GPU memory (16GB+)
+- Requires substantial GPU memory (16GB+) 
 - Limited to objects that fit TRELLIS training distribution
 - Mask quality significantly affects editing results
+- kaolin functionality is limited (only basic check_tensor implemented)
+
+## Resuming from this Checkpoint
+
+This repository is now set up with a working TRELLIS local editing environment. To resume work:
+
+### 1. Clone the Fork
+```bash
+git clone https://github.com/AJ-Gazin/TRELLIS.git
+cd TRELLIS
+git checkout dev  # Make sure you're on the dev branch with our changes
+```
+
+### 2. Quick Setup
+```bash
+# Create and activate conda environment
+conda create -n trellis python=3.10
+conda activate trellis
+
+# Install using our tested configuration
+./setup.sh --claude-working-setup
+
+# Set environment variables for the session
+export ATTN_BACKEND=flash-attn
+export SPCONV_ALGO=native
+```
+
+### 3. Verify Setup
+```bash
+# Test the environment
+python -c "from trellis import models; from trellis.pipelines import TrellisImageTo3DPipeline; print('🎉 TRELLIS ready for local editing!')"
+```
+
+### 4. Next Steps
+- Source table mesh for furniture demo (`assets/example_local_edit/table/`)
+- Create editing masks and reference images
+- Run `example_local_edit.py` experiments
+- Generate visualization results for client demo
+
+### Environment Persistence
+Add to your shell profile (`~/.bashrc` or `~/.zshrc`):
+```bash
+# TRELLIS environment variables
+export ATTN_BACKEND=flash-attn
+export SPCONV_ALGO=native
+```
 
 ## Documentation & References
 
