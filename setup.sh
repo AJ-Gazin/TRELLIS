@@ -1,5 +1,5 @@
 # Read Arguments
-TEMP=`getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo -n 'setup.sh' -- "$@"`
+TEMP=`getopt -o h --long help,new-env,basic,train,xformers,flash-attn,diffoctreerast,vox2seq,spconv,mipgaussian,kaolin,nvdiffrast,demo,claude-working-setup -n 'setup.sh' -- "$@"`
 
 eval set -- "$TEMP"
 
@@ -18,6 +18,7 @@ MIPGAUSSIAN=false
 KAOLIN=false
 NVDIFFRAST=false
 DEMO=false
+CLAUDE_WORKING_SETUP=false
 
 if [ "$#" -eq 1 ] ; then
     HELP=true
@@ -38,6 +39,7 @@ while true ; do
         --kaolin) KAOLIN=true ; shift ;;
         --nvdiffrast) NVDIFFRAST=true ; shift ;;
         --demo) DEMO=true ; shift ;;
+        --claude-working-setup) CLAUDE_WORKING_SETUP=true ; shift ;;
         --) shift ; break ;;
         *) ERROR=true ; break ;;
     esac
@@ -64,6 +66,7 @@ if [ "$HELP" = true ] ; then
     echo "  --kaolin                Install kaolin"
     echo "  --nvdiffrast            Install nvdiffrast"
     echo "  --demo                  Install all dependencies for demo"
+    echo "  --claude-working-setup  Install Claude Code working configuration (PyTorch 2.6.0 + CUDA 12.6)"
     return
 fi
 
@@ -257,4 +260,38 @@ fi
 
 if [ "$DEMO" = true ] ; then
     pip install gradio==4.44.1 gradio_litmodel3d==0.0.1
+fi
+
+# Claude Code Working Configuration (December 2024)
+# This section contains the exact working setup from the Claude Code session
+# that successfully resolved all compatibility issues for TRELLIS local editing
+if [ "$CLAUDE_WORKING_SETUP" = true ] ; then
+    echo "[CLAUDE] Installing working PyTorch 2.6.0 + CUDA 12.6 + spconv-cu126 configuration..."
+    
+    # Install PyTorch 2.6.0 with CUDA 12.6 support (tested working)
+    pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu126
+    
+    # Install basic dependencies
+    pip install pillow imageio imageio-ffmpeg tqdm easydict opencv-python-headless scipy ninja rembg onnxruntime trimesh open3d transformers
+    
+    # Install utils3d from specific commit (required for TRELLIS)
+    pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
+    
+    # Install spconv-cu126 (latest version compatible with CUDA 12.6)
+    pip install spconv-cu126
+    
+    # Install flash-attn (works better than xformers with our setup)
+    pip install flash-attn
+    
+    # Install mesh processing dependencies
+    pip install pymeshlab pymeshfix pyvista
+    
+    # Install nvdiffrast from source
+    pip install git+https://github.com/NVlabs/nvdiffrast.git
+    
+    # Install additional dependencies that were found missing during testing
+    pip install plyfile
+    
+    echo "[CLAUDE] Working configuration installed successfully!"
+    echo "[CLAUDE] Use: export ATTN_BACKEND=flash-attn && export SPCONV_ALGO=native"
 fi
