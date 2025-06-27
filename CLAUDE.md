@@ -5,7 +5,7 @@ This TRELLIS fork implements experimental local editing capabilities for 3D mesh
 
 **Date**: December 2024
 **Status**: Working implementation with Claude Code tested setup
-**Repository**: Fork of https://github.com/FishWoWater/TRELLIS/tree/dev
+**Repository**: https://github.com/AJ-Gazin/TRELLIS (based on https://github.com/FishWoWater/TRELLIS)
 
 ## Core Objective
 Test a TRELLIS-based method for mesh editing. The authors claimed in their paper that local editing of objects is possible, but never published the code. This fork implements it as an experimental feature with a fully tested working environment.

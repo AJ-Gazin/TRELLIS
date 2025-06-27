@@ -3,6 +3,7 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+models--microsoft--TRELLIS-image-large/
 # User-specific files
 *.rsuser
 *.suo
