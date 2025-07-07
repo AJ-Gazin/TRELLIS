@@ -18,18 +18,29 @@ from .tables import *
 # Custom implementation of check_tensor to avoid kaolin dependency
 def check_tensor(tensor, shape=None, dtype=None, device=None, throw=True):
     """Check if a tensor matches the expected shape, dtype, and device."""
-    if shape is not None and tensor.shape != torch.Size(shape):
-        if throw:
-            raise ValueError(f"Expected shape {shape}, got {tensor.shape}")
-        return False
+    if shape is not None:
+        # Handle shape tuples with None values (meaning any size for that dimension)
+        if len(tensor.shape) != len(shape):
+            if throw:
+                raise ValueError(f"Expected {len(shape)} dimensions, got {len(tensor.shape)}")
+            return False
+        
+        for i, (expected, actual) in enumerate(zip(shape, tensor.shape)):
+            if expected is not None and expected != actual:
+                if throw:
+                    raise ValueError(f"Expected dimension {i} to be {expected}, got {actual}")
+                return False
+    
     if dtype is not None and tensor.dtype != dtype:
         if throw:
             raise ValueError(f"Expected dtype {dtype}, got {tensor.dtype}")
         return False
+    
     if device is not None and tensor.device != torch.device(device):
         if throw:
             raise ValueError(f"Expected device {device}, got {tensor.device}")
         return False
+    
     return True
 
 __all__ = [

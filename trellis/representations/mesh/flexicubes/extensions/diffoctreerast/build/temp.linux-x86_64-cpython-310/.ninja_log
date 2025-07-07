@@ -1,0 +1,18 @@
+# ninja log v5
+4	5702	1751412194677708856	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/backward.o	747ec9752375fb7b
+1	6360	1751412195335702854	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/backward.o	bf2dae5f16da593
+2	6985	1751412195962697134	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/data_structure.o	6f626861dee1281
+4	7187	1751412196165695282	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/data_structure.o	5814ccdc1043cfd1
+2	8954	1751412197927679208	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/forward.o	145149ec0baa03d
+4	9066	1751412198041678168	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/forward.o	20311af1ba585a0d
+6360	12207	1751412201183649505	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/backward.o	6808528ccba62367
+6985	14067	1751412203043632547	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/data_structure.o	2adf7fc7736ab325
+9067	14862	1751412203840625281	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/backward.o	b7fae71f10e5a687
+7187	16159	1751412205134613483	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/forward.o	477904b97faec2bf
+1	17515	1751412206489601129	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/api.o	7ca21601975745ad
+3	17716	1751412206684599351	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/api.o	db6927388582cd50
+12207	18661	1751412207638590653	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/data_structure.o	211032044cdd765c
+0	19031	1751412207990587444	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/ext.o	22306e3528fa9d1d
+14067	21676	1751412210653563164	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/forward.o	79b1c5d258a97230
+5706	22208	1751412211168558469	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/api.o	478e32867758f45a
+8954	25810	1751412214770525628	/tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/api.o	497a0a2a3053e45d

@@ -158,7 +158,7 @@ Models are automatically downloaded by `quick_setup.sh`.
 
 ### 1. kaolin Compatibility Issue ✅
 - **Problem**: Original code tried to import `kaolin.utils.testing.check_tensor` but kaolin has compatibility issues with PyTorch 2.6.0
-- **Solution**: Replaced kaolin import with complete `check_tensor` implementation in `trellis/representations/mesh/flexicubes/flexicubes.py` including `throw` parameter support
+- **Solution**: Replaced kaolin import with complete `check_tensor` implementation in `trellis/representations/mesh/flexicubes/flexicubes.py` including proper handling of shape tuples with `None` values
 - **Impact**: FlexiCubes mesh extraction now works without requiring kaolin
 
 ### 2. spconv Version Compatibility ✅
@@ -178,8 +178,13 @@ Models are automatically downloaded by `quick_setup.sh`.
 
 ### 5. Complete Rendering Dependencies ✅
 - **Problem**: Missing diff-gaussian-rasterization, simple-knn, diffoctreerast
-- **Solution**: Added all rendering dependencies to setup script
+- **Solution**: Added all rendering dependencies to setup script, using mip-splatting's version of diff-gaussian-rasterization for `kernel_size` parameter support
 - **Impact**: Full pipeline works including Gaussian splatting, radiance fields, and mesh rendering
+
+### 6. diff-gaussian-rasterization Version ✅
+- **Problem**: Standard diff-gaussian-rasterization doesn't support `kernel_size` and `subpixel_offset` parameters
+- **Solution**: Install from mip-splatting repository which includes these parameters
+- **Impact**: Gaussian rendering works correctly without modifying TRELLIS code
 
 ## Manual Installation (if needed)
 
@@ -204,7 +209,10 @@ pip install flash-attn spconv-cu126
 
 # Install rendering dependencies
 pip install git+https://github.com/NVlabs/nvdiffrast.git
-pip install git+https://github.com/graphdeco-inria/diff-gaussian-rasterization.git@main
+# Install diff-gaussian-rasterization from mip-splatting for kernel_size support
+git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-splatting
+pip install /tmp/mip-splatting/submodules/diff-gaussian-rasterization/
+rm -rf /tmp/mip-splatting
 pip install git+https://github.com/camenduru/simple-knn.git@main
 
 # Install diffoctreerast
@@ -241,7 +249,13 @@ python -c "import trimesh; scene = trimesh.load('./assets/example_local_edit/dol
 python -c "import torch; print(f'✅ PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"None\"}')"
 
 # Test rendering dependencies
-python -c "import diff_gaussian_rasterization; import simple_knn; import diffoctreerast; print('✅ All rendering dependencies')"
+python -c "import diff_gaussian_rasterization; import simple_knn; import diffoctreerast; print('✅ All rendering dependencies loaded')"
+
+# Test diff-gaussian-rasterization has kernel_size support
+python -c "from diff_gaussian_rasterization import GaussianRasterizationSettings; import inspect; sig = str(inspect.signature(GaussianRasterizationSettings)); print('✅ kernel_size supported' if 'kernel_size' in sig else '❌ kernel_size NOT supported')"
+
+# Check if models need to be downloaded
+python -c "from pathlib import Path; cache = Path.home() / '.cache/huggingface/hub'; model_dir = cache / 'models--microsoft--TRELLIS-image-large'; print('✅ Model already downloaded' if model_dir.exists() and list(model_dir.rglob('*.bin')) else '⚠️  Model needs to be downloaded')"
 ```
 
 ## Troubleshooting
@@ -257,9 +271,10 @@ python -c "import diff_gaussian_rasterization; import simple_knn; import diffoct
 - Close other GPU applications
 
 ### Model Download Issues
-- Models auto-download on first run
-- Check internet connection
-- Verify HuggingFace hub access
+- Models auto-download on first run (requires HuggingFace authentication)
+- To download models: `python download_models.py` (after authenticating with `huggingface-cli login`)
+- Models are cached in `~/.cache/huggingface/hub/` and won't be included in git repository
+- Model size: ~1.2GB for TRELLIS-image-large
 
 ## Environment Persistence
 

@@ -56,7 +56,10 @@ pip install spconv-cu126
 
 echo "🎨 Installing rendering dependencies..."
 pip install git+https://github.com/NVlabs/nvdiffrast.git
-pip install git+https://github.com/graphdeco-inria/diff-gaussian-rasterization.git@main
+# Install diff-gaussian-rasterization from mip-splatting for kernel_size support
+git clone https://github.com/autonomousvision/mip-splatting.git /tmp/mip-splatting
+pip install /tmp/mip-splatting/submodules/diff-gaussian-rasterization/
+rm -rf /tmp/mip-splatting
 pip install git+https://github.com/camenduru/simple-knn.git@main
 
 echo "🔄 Installing additional rendering..."
@@ -67,21 +70,12 @@ rm -rf /tmp/diffoctreerast
 echo "🧰 Installing utils3d..."
 pip install git+https://github.com/EasternJournalist/utils3d.git@9a4eb15e4021b67b12c460c7057d642626897ec8
 
-# Initialize git submodules
-echo "📁 Initializing git submodules..."
-git submodule update --init --recursive
+# Note: Git submodules have been converted to regular files for stability
+echo "📁 All dependencies are now included as regular files..."
 
-# Download models
+# Download models using separate script
 echo "🤖 Downloading TRELLIS models..."
-python -c "
-from huggingface_hub import snapshot_download
-import os
-os.environ['ATTN_BACKEND'] = 'flash-attn'
-os.environ['SPCONV_ALGO'] = 'native'
-print('Downloading microsoft/TRELLIS-image-large...')
-snapshot_download('microsoft/TRELLIS-image-large', cache_dir=os.path.expanduser('~/.cache/huggingface/hub'))
-print('✅ Models downloaded!')
-"
+python download_models.py
 
 # Verify installation
 echo "🔍 Verifying installation..."

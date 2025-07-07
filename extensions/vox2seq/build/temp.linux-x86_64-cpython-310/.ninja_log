@@ -1,0 +1,5 @@
+# ninja log v5
+6	1780	1751412360000000000	/workspace/mesh_edit_project/TRELLIS/extensions/vox2seq/build/temp.linux-x86_64-cpython-310/src/z_order.o	1b66a892aeac6787
+6	1863	1751412360000000000	/workspace/mesh_edit_project/TRELLIS/extensions/vox2seq/build/temp.linux-x86_64-cpython-310/src/hilbert.o	a69a83d96396dc9c
+5	14798	1751412373000000000	/workspace/mesh_edit_project/TRELLIS/extensions/vox2seq/build/temp.linux-x86_64-cpython-310/src/ext.o	c6f2c6d07bf2efbb
+4	50042	1751412408000000000	/workspace/mesh_edit_project/TRELLIS/extensions/vox2seq/build/temp.linux-x86_64-cpython-310/src/api.o	36edbb14eed45661

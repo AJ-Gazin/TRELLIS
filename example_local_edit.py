@@ -5,7 +5,7 @@ import os
 import sys
 
 os.environ["ATTN_BACKEND"] = (
-    "xformers"  # Can be 'flash-attn' or 'xformers', default is 'flash-attn'
+    "flash-attn"  # Can be 'flash-attn' or 'xformers', default is 'flash-attn'
 )
 os.environ["SPCONV_ALGO"] = "native"  # Can be 'native' or 'auto', default is 'auto'.
 # 'auto' is faster but will do benchmarking at the beginning.

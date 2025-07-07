@@ -1,0 +1,48 @@
+ninja_required_version = 1.3
+cxx = c++
+nvcc = /usr/local/cuda/bin/nvcc
+
+cflags = -pthread -B /root/miniconda3/envs/trellis/compiler_compat -Wno-unused-result -Wsign-compare -DNDEBUG -fwrapv -O2 -Wall -fPIC -O2 -isystem /root/miniconda3/envs/trellis/include -fPIC -O2 -isystem /root/miniconda3/envs/trellis/include -fPIC -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/TH -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/THC -I/usr/local/cuda/include -I/root/miniconda3/envs/trellis/include/python3.10 -c
+post_cflags = -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1016"' -DTORCH_EXTENSION_NAME=_C -D_GLIBCXX_USE_CXX11_ABI=1 -std=c++17
+cuda_cflags = -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/torch/csrc/api/include -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/TH -I/root/miniconda3/envs/trellis/lib/python3.10/site-packages/torch/include/THC -I/usr/local/cuda/include -I/root/miniconda3/envs/trellis/include/python3.10 -c
+cuda_post_cflags = -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options ''"'"'-fPIC'"'"'' -I/tmp/extensions/diffoctreerast/lib/glm/ -DTORCH_API_INCLUDE_EXTENSION_H '-DPYBIND11_COMPILER_TYPE="_gcc"' '-DPYBIND11_STDLIB="_libstdcpp"' '-DPYBIND11_BUILD_ABI="_cxxabi1016"' -DTORCH_EXTENSION_NAME=_C -D_GLIBCXX_USE_CXX11_ABI=1 -gencode=arch=compute_86,code=compute_86 -gencode=arch=compute_86,code=sm_86 -std=c++17
+cuda_dlink_post_cflags = 
+ldflags = 
+
+rule compile
+  command = $cxx -MMD -MF $out.d $cflags -c $in -o $out $post_cflags
+  depfile = $out.d
+  deps = gcc
+
+rule cuda_compile
+  depfile = $out.d
+  deps = gcc
+  command = $nvcc --generate-dependencies-with-compile --dependency-output $out.d $cuda_cflags -c $in -o $out $cuda_post_cflags
+
+
+
+
+
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/ext.o: compile /tmp/extensions/diffoctreerast/src/ext.cpp
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/api.o: compile /tmp/extensions/diffoctreerast/src/octree_decoupoly_rasterizer/api.cpp
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/backward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_decoupoly_rasterizer/cuda/backward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/data_structure.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_decoupoly_rasterizer/cuda/data_structure.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_decoupoly_rasterizer/cuda/forward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_decoupoly_rasterizer/cuda/forward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/api.o: compile /tmp/extensions/diffoctreerast/src/octree_gaussian_rasterizer/api.cpp
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/backward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_gaussian_rasterizer/cuda/backward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/data_structure.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_gaussian_rasterizer/cuda/data_structure.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_gaussian_rasterizer/cuda/forward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_gaussian_rasterizer/cuda/forward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/api.o: compile /tmp/extensions/diffoctreerast/src/octree_trivec_rasterizer/api.cpp
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/backward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_trivec_rasterizer/cuda/backward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/data_structure.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_trivec_rasterizer/cuda/data_structure.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_trivec_rasterizer/cuda/forward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_trivec_rasterizer/cuda/forward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/api.o: compile /tmp/extensions/diffoctreerast/src/octree_voxel_rasterizer/api.cpp
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/backward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_voxel_rasterizer/cuda/backward.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/data_structure.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_voxel_rasterizer/cuda/data_structure.cu
+build /tmp/extensions/diffoctreerast/build/temp.linux-x86_64-cpython-310/src/octree_voxel_rasterizer/cuda/forward.o: cuda_compile /tmp/extensions/diffoctreerast/src/octree_voxel_rasterizer/cuda/forward.cu
+
+
+
+
+
+
